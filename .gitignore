@@ -1,3 +1,4 @@
-./weather-insights
+./weather-insights/
+__pycache__/
 brainstorm.txt
 .cache-sqlite
