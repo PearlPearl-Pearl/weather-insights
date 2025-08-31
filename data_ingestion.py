@@ -2,15 +2,12 @@ import openmeteo_requests
 import pandas as pd
 import requests_cache
 from retry_requests import retry
-from datetime import datetime
+from datetime import datetime, date
 from geopy.geocoders import Nominatim
 import logging
 
 logger = logging.getLogger(__name__)
-logging.basicConfig(filename='data_load.log', 
-                    filemode='w',
-                    encoding='utf-8',
-                    level = logging.DEBUG)
+logging.basicConfig(level = logging.DEBUG)
 
 class LoadFromApi:
     """This class contains functionality to load data from the open-meteo api. For now it only loads daily data"""
@@ -49,18 +46,21 @@ class LoadFromApi:
     def __init__(self, base_url:str, city:str, country:str, start_date:str, end_date:str):
         self.base_url = base_url
         self.latitude, self.longitude = LoadFromApi.get_geo_loc(city, country)
-        self.start_date = datetime.strptime(start_date, "%Y-%m-%d")
-        self.end_date = datetime.strptime(end_date, "%Y-%m-%d")
+        self.start_date = datetime.strptime(start_date, "%Y-%m-%d").date()
+        self.end_date = datetime.strptime(end_date, "%Y-%m-%d").date()
         self.client = self.create_openmeteo_client()
+        today = date.today()
 
         if self.end_date < self.start_date:
             raise ValueError("End date must be after start date")
+        elif self.end_date > today or self.start_date > today:
+            raise ValueError("dates cannot be in the future")
 
         self.start_date_str = self.start_date.strftime("%Y-%m-%d")
         self.end_date_str = self.end_date.strftime("%Y-%m-%d")
 
 
-    def get_openmeteo_client(self, **kwargs) -> openmeteo_requests.Response:
+    def get_openmeteo_client(self, **kwargs):
         """Returns the OpenMeteo Response object"""
         params = {'latitude':self.latitude, 
                   'longitude':self.longitude, 
