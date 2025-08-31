@@ -1,4 +1,4 @@
-# Smart Weather Insights Platform 🌦️
+# Smart Weather Insights Platform
 
 A **production-grade weather data platform** that ingests, processes, and analyzes weather datasets, providing predictions and insights via APIs and dashboards. This project evolves alongside a master’s curriculum, demonstrating a progressive, hands-on application of data engineering, statistics, and machine learning.
 
@@ -9,10 +9,10 @@ A **production-grade weather data platform** that ingests, processes, and analyz
 - [Project Overview](#project-overview)  
 - [Features](#features)  
 - [Installation](#installation)  
-- [Usage](#usage)  
+<!-- - [Usage](#usage)  
 - [Project Roadmap](#project-roadmap)  
 - [GitHub Branch Strategy](#github-branch-strategy)  
-- [Portfolio Story](#portfolio-story)  
+- [Portfolio Story](#portfolio-story)   -->
 
 ---
 
