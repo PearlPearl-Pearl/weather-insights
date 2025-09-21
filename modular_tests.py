@@ -1,10 +1,11 @@
 from data_ingestion import LoadFromApi, logger
+import time
 
 base_url = "https://archive-api.open-meteo.com/v1/archive"
 city = 'Accra'
 country = 'Ghana'
 start_date = '2025-08-18'
-end_date = '2025-08-30'
+end_date = '2025-09-20'
 
 
 def test_openmeteo(base_url:str, city:str, country:str, start_date:str, end_date:str):
@@ -17,5 +18,8 @@ def test_openmeteo(base_url:str, city:str, country:str, start_date:str, end_date
         "relative_humidity_2m_min", "relative_humidity_2m_max"])
 
     
-
+start = time.time()
 print(test_openmeteo(base_url, city, country, start_date, end_date))
+end = time.time()
+
+print(f'{round(end-start, 2)}s')

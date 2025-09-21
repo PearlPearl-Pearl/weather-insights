@@ -79,6 +79,7 @@ class LoadFromApi:
 
 
     def get_weather_data(self, **kwargs) -> pd.DataFrame:
+        """Return weather data with defined variables in DataFrame"""
         try:
             response = self.get_openmeteo_client(**kwargs)
         except Exception as e:
