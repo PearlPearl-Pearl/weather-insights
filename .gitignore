@@ -4,3 +4,4 @@ brainstorm.txt
 .cache-sqlite
 tests/__pycache__
 .cache.sqlite
+constants

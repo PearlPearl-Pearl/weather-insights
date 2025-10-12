@@ -5,6 +5,11 @@ from retry_requests import retry
 from datetime import datetime, date
 from geopy.geocoders import Nominatim
 import logging
+from sqlalchemy import create_engine, text
+from sqlalchemy.engine import Engine
+from sqlalchemy.exc import ProgrammingError
+from constants.constants import * 
+
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level = logging.DEBUG)
@@ -39,7 +44,7 @@ class LoadFromApi:
             return openmeteo
 
         except Exception as e:
-            logger.error('There was an error connection to the API')
+            logger.error('There was an error connecting to the API')
             raise ConnectionError(f"Unable to connect to OpenMeteo API: {e}")
 
 
@@ -49,6 +54,7 @@ class LoadFromApi:
         self.start_date = datetime.strptime(start_date, "%Y-%m-%d").date()
         self.end_date = datetime.strptime(end_date, "%Y-%m-%d").date()
         self.client = self.create_openmeteo_client()
+        self.engine = create_engine(DB_CON_STR)
         today = date.today()
 
         if self.end_date < self.start_date:
@@ -62,6 +68,7 @@ class LoadFromApi:
 
     def get_openmeteo_client(self, **kwargs):
         """Returns the OpenMeteo Response object"""
+
         params = {'latitude':self.latitude, 
                   'longitude':self.longitude, 
                   'start_date':self.start_date_str, 
@@ -80,9 +87,11 @@ class LoadFromApi:
 
     def get_weather_data(self, **kwargs) -> pd.DataFrame:
         """Return weather data with defined variables in DataFrame"""
+
         try:
             response = self.get_openmeteo_client(**kwargs)
         except Exception as e:
+            logger.error('There was an error connecting to the API')
             raise ConnectionError(f"API call failed: {e}")
 
         daily = response.Daily()
@@ -101,4 +110,101 @@ class LoadFromApi:
         logger.info('Successfully generated dataframe')
 
         return daily_dataframe
+    
+    def table_exists(self, table_name:str, db_connection:Engine=None) -> bool:
+        """Checks if the table already exists in the db. 
+        Returns the number of rows if it does and None if it does not."""
 
+        if db_connection is None:
+            db_connection = self.engine
+
+        query_str = fr"""select count(*) from information_schema.tables where table_name = '{table_name}';"""
+        query = text(query_str)
+
+        try:
+            with db_connection.begin() as connection:
+                results = connection.execute(query).scalar()
+            
+            if results > 0:
+                return True
+            else:
+                return False
+        
+        except ConnectionError as e:
+            raise ConnectionError(f'Cannot connect to the datbase {e}.')
+        
+
+    def table_len(self, table_name:str, db_connection:Engine=None) -> int:
+        """Returns the number of rows in table_name"""
+
+        query_str = fr"""select count(*) from {table_name};"""
+        query = text(query_str)
+
+        if db_connection is None:
+            db_connection = self.engine
+
+        try:
+            with db_connection.begin() as connection:
+                results = connection.execute(query).scalar()
+            return results
+        except ConnectionError as e:
+            raise ConnectionError(f"Cannot connect to the database with error: {e}.")    
+
+
+    def check_primary_key(self, table_name:str, db_connection:Engine=None) -> bool: 
+        """Check if PRIMARY KEY constraints exist for table_name"""
+
+        query_str = fr"""select count(*) from information_schema.table_constraints where table_name = '{table_name}' and constraint_type = 'PRIMARY KEY';"""
+        query = text(query_str)
+
+        if db_connection is None:
+            db_connection = self.engine
+
+        try:
+            with db_connection.begin() as connection:
+                results = connection.execute(query).scalar()
+
+            if results>0:
+                return True
+            else:
+                return False 
+        
+        except ConnectionError as e:
+            raise ConnectionError(f"Cannot connect to the database with error: {e}.")    
+
+
+    def push_to_db(self, dataframe:pd.DataFrame, db_connection:Engine=None):
+        """Push dataframe to a temporary database table"""
+
+        if db_connection is None:
+            db_connection = self.engine
+
+        table_name = 'raw_weather_data'
+        if self.table_exists(table_name, db_connection):
+            table_len = self.table_len(table_name, db_connection)
+        else:
+            table_len = 0
+        
+        primary_key = self.check_primary_key(table_name, db_connection)
+
+        dataframe = dataframe.reset_index(drop=True)
+        if table_len == 0:
+            dataframe['id'] = dataframe.index + 1
+        else:
+            dataframe['id'] = dataframe.index + 1 + table_len
+
+        try:
+            dataframe.to_sql(table_name, db_connection, if_exists="append", index=False)
+
+            if not primary_key:
+                query = text(f'alter table "{table_name}" add constraint "{table_name}_pk" primary key (id);')
+                with db_connection.connect() as conn:
+                    conn.execute(query)
+                    conn.commit()
+
+            logger.info(f"Successfully pushed {len(dataframe)} rows to {table_name}.")
+            return len(dataframe)
+
+        except Exception as e:
+            raise ConnectionError(f"Cannot connect to the database with error {e}.")  
+        
